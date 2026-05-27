@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Check } from "lucide-react";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { BottomPickSheet } from "@/components/BottomPickSheet";
 import { Typography } from "@/components/NouiTypography";
@@ -25,7 +27,7 @@ import { cn } from "@/lib/utils";
  * viewport / overflow ancestors. Below the `sm` breakpoint, `dropUp` uses a
  * bottom sheet portaled to `document.body` instead of an anchored dropdown.
  */
-export function LanguageSwitcher({ dropUp = false }: LanguageSwitcherProps) {
+export function LanguageSwitcher({ collapsed = false, dropUp = false }: LanguageSwitcherProps) {
   const { locale, setLocale, t } = useI18n();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,7 +71,10 @@ export function LanguageSwitcher({ dropUp = false }: LanguageSwitcherProps) {
         aria-label={t.language.switchTo}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="px-2 py-1 normal-case tracking-normal font-normal text-xs text-text-secondary hover:text-foreground"
+        className={cn(
+          "px-2 py-1 normal-case tracking-normal font-normal text-xs text-text-secondary hover:text-foreground",
+          collapsed && "hover:bg-transparent",
+        )}
       >
         <span className="inline-flex items-center gap-1.5">
           <Typography
@@ -99,23 +104,32 @@ export function LanguageSwitcher({ dropUp = false }: LanguageSwitcherProps) {
         </BottomPickSheet>
       )}
 
-      {open && !useMobileSheet && (
-        <div
-          aria-label={sheetTitle}
-          className={cn(
-            "absolute right-0 z-50 min-w-[10rem] rounded-md border border-border bg-popover shadow-md py-1 max-h-80 overflow-y-auto",
-            dropUp ? "bottom-full mb-1" : "top-full mt-1",
-          )}
-          role="listbox"
-        >
-          <LanguageSwitcherOptions
-            allLocales={allLocales}
-            locale={locale}
-            setLocale={setLocale}
-            setOpen={setOpen}
-          />
-        </div>
-      )}
+      {open && !useMobileSheet && (() => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        const dropdown = (
+          <div
+            aria-label={sheetTitle}
+            className={cn(
+              "min-w-[10rem] border border-border bg-popover shadow-md py-1 max-h-80 overflow-y-auto",
+              dropUp ? "fixed z-[100]" : "absolute z-50 right-0 top-full mt-1",
+            )}
+            role="listbox"
+            style={
+              dropUp && rect
+                ? { bottom: window.innerHeight - rect.top + 4, left: rect.left }
+                : undefined
+            }
+          >
+            <LanguageSwitcherOptions
+              allLocales={allLocales}
+              locale={locale}
+              setLocale={setLocale}
+              setOpen={setOpen}
+            />
+          </div>
+        );
+        return dropUp ? createPortal(dropdown, document.body) : dropdown;
+      })()}
     </div>
   );
 }
@@ -134,10 +148,12 @@ function LanguageSwitcherOptions({
         return (
           <button
             aria-selected={selected}
-            className={
-              "w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-accent hover:text-accent-foreground transition-colors " +
-              (selected ? "font-semibold text-foreground" : "text-muted-foreground")
-            }
+            className={cn(
+              "w-full text-left px-3 py-1.5 flex items-center gap-2 cursor-pointer",
+              "font-mondwest text-display text-xs tracking-[0.08em]",
+              "hover:bg-accent hover:text-accent-foreground transition-colors",
+              selected ? "font-semibold text-foreground" : "text-muted-foreground",
+            )}
             key={code}
             onClick={() => {
               setLocale(code);
@@ -148,7 +164,7 @@ function LanguageSwitcherOptions({
           >
             <span className="truncate">{meta.name}</span>
 
-            {selected && <span className="ml-auto text-xs">✓</span>}
+            {selected && <Check className="ml-auto h-3 w-3 shrink-0 text-midground" />}
           </button>
         );
       })}
@@ -164,5 +180,6 @@ interface LanguageSwitcherOptionsProps {
 }
 
 interface LanguageSwitcherProps {
+  collapsed?: boolean;
   dropUp?: boolean;
 }
